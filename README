@@ -1,0 +1,3 @@
+Arduino firmware for CeilingBot.
+
+Needs rosserial-arduino's ros_lib installed in lib to run.
