@@ -25,7 +25,7 @@ char log_buffer[50];
 #define WHEELBASE 0.135 // in meters
 #define WHEEL_RADIUS 0.033 // in meters
 #define WHEEL_CIRCUMFERENCE 0.207 // in meters
-#define ENCODER_TICKS_PER_ROTATION 20 // 20 holes in encoder disc, only counting rising edges
+#define ENCODER_TICKS_PER_ROTATION 40.0 // 20 holes in encoder disc
 #define WHEEL_DISTANCE_PER_ENCODER_TICK (WHEEL_CIRCUMFERENCE / ENCODER_TICKS_PER_ROTATION) // in meters
 
 #define FORWARD true
@@ -206,6 +206,17 @@ void turnWheel(const int wheelCmdSpd,
 
 
 void cmdVelCallback(const geometry_msgs::Twist &twist) {
+  if (twist.linear.x == 0 && twist.angular.z == 0) {
+    leftWheelPID.SetMode(MANUAL);
+    rightWheelPID.SetMode(MANUAL);
+
+    turnWheel(0, L_MOTOR_FWD_OR_STOP, L_MOTOR_DIR_PIN);
+    turnWheel(0, R_MOTOR_FWD_OR_STOP, R_MOTOR_DIR_PIN);
+  } else {
+    leftWheelPID.SetMode(AUTOMATIC);
+    rightWheelPID.SetMode(AUTOMATIC);
+  }
+
   leftWheelDesiredVelocity = twist.linear.x - twist.angular.z*WHEELBASE;
   rightWheelDesiredVelocity = twist.linear.x + twist.angular.z*WHEELBASE;
 }
@@ -251,8 +262,8 @@ void setup() {
   digitalWrite(R_MOTOR_DIR_PIN, LOW);
 
   //Set encoder interrupts
-  attachInterrupt(digitalPinToInterrupt(L_ENCODER_PIN), leftEncoderCallback, RISING);
-  attachInterrupt(digitalPinToInterrupt(R_ENCODER_PIN), rightEncoderCallback, RISING);
+  attachInterrupt(digitalPinToInterrupt(L_ENCODER_PIN), leftEncoderCallback, CHANGE);
+  attachInterrupt(digitalPinToInterrupt(R_ENCODER_PIN), rightEncoderCallback, CHANGE);
   
 
   //Delay for encoder interrupts to initialize
@@ -274,11 +285,12 @@ void setup() {
   TCCR1B |= (1 << CS12) | (1 << CS10);  
   // enable timer compare interrupt
   TIMSK1 |= (1 << OCIE1A);
-
-  leftWheelPID.SetMode(AUTOMATIC);
-  rightWheelPID.SetMode(AUTOMATIC);
+  
   leftWheelPID.SetOutputLimits(0, MAX_PWM);
   rightWheelPID.SetOutputLimits(0, MAX_PWM);
+  // PIDs are manual when stopped
+  leftWheelPID.SetMode(MANUAL);
+  rightWheelPID.SetMode(MANUAL);
 
   nh.initNode();
   nh.advertise(encoderVelocityPub);
